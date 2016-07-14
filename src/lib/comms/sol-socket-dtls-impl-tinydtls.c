@@ -722,7 +722,7 @@ err:
     errno = -r;
     return NULL;
 }
-
+/*
 int
 sol_socket_dtls_set_handshake_cipher(struct sol_socket *s,
     enum sol_socket_dtls_cipher cipher)
@@ -756,7 +756,7 @@ sol_socket_dtls_set_anon_ecdh_enabled(struct sol_socket *s, bool setting)
 
     return 0;
 }
-
+ */
 int
 sol_socket_dtls_prf_keyblock(struct sol_socket *s,
     const struct sol_network_link_addr *addr, struct sol_str_slice label,

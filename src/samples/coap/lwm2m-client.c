@@ -101,11 +101,19 @@ static struct sol_blob bootstrap_server_addr = {
     .refcnt = 1
 };
 
-static struct sol_blob server_addr = {
+static struct sol_blob server_addr_0 = {
     .type = &SOL_BLOB_TYPE_NO_FREE,
     .parent = NULL,
     .mem = (void *)"coap://localhost:5683",
     .size = sizeof("coap://localhost:5683") - 1,
+    .refcnt = 1
+};
+
+static struct sol_blob server_addr_1 = {
+    .type = &SOL_BLOB_TYPE_NO_FREE,
+    .parent = NULL,
+    .mem = (void *)"coap://localhost:5693",
+    .size = sizeof("coap://localhost:5693") - 1,
     .refcnt = 1
 };
 
@@ -760,8 +768,8 @@ main(int argc, char *argv[])
     static const struct sol_lwm2m_object *objects[] =
     { &security_object, &server_object, &location_object, NULL };
     struct client_data_ctx data_ctx = { 0 };
-    struct security_obj_instance_ctx *security_data;
-    struct server_obj_instance_ctx *server_data;
+    struct security_obj_instance_ctx *security_data_0, *security_data_1;
+    struct server_obj_instance_ctx *server_data_0, *server_data_1;
     int r;
 
     srand(time(NULL));
@@ -784,56 +792,105 @@ main(int argc, char *argv[])
         goto exit;
     }
 
-    security_data = calloc(1, sizeof(struct security_obj_instance_ctx));
-    if (!security_data) {
-        fprintf(stderr, "Could not alloc memory for security object context\n");
-        return -ENOMEM;
-    }
-
-    security_data->client = client;
-
     if (!data_ctx.is_bootstrap) {
-        server_data = calloc(1, sizeof(struct server_obj_instance_ctx));
-        if (!server_data) {
-            fprintf(stderr, "Could not alloc memory for server object context\n");
+        //Server [0] = 101
+        server_data_0 = calloc(1, sizeof(struct server_obj_instance_ctx));
+        if (!server_data_0) {
+            fprintf(stderr, "Could not alloc memory for server object context [0]\n");
             return -ENOMEM;
         }
 
-        server_data->client = client;
-        server_data->binding = &binding;
-        server_data->server_id = 101;
-        server_data->lifetime = LIFETIME;
+        server_data_0->client = client;
+        server_data_0->binding = &binding;
+        server_data_0->server_id = 101;
+        server_data_0->lifetime = LIFETIME;
 
-        r = sol_lwm2m_client_add_object_instance(client, &server_object, server_data);
-
+        r = sol_lwm2m_client_add_object_instance(client, &server_object, server_data_0);
         if (r < 0) {
-            fprintf(stderr, "Could not add a server object instance\n");
+            fprintf(stderr, "Could not add a server object instance [0]\n");
             goto exit_del;
         }
 
-        security_data->server_uri = &server_addr;
-        security_data->is_bootstrap = false;
-        security_data->server_id = 101;
+        //Server [1] = 102
+        server_data_1 = calloc(1, sizeof(struct server_obj_instance_ctx));
+        if (!server_data_1) {
+            fprintf(stderr, "Could not alloc memory for server object context [1]\n");
+            return -ENOMEM;
+        }
+
+        server_data_1->client = client;
+        server_data_1->binding = &binding;
+        server_data_1->server_id = 102;
+        server_data_1->lifetime = LIFETIME;
+
+        r = sol_lwm2m_client_add_object_instance(client, &server_object, server_data_1);
+        if (r < 0) {
+            fprintf(stderr, "Could not add a server object instance[1]\n");
+            goto exit_del;
+        }
+
+        //Security [0] = 101
+        security_data_0 = calloc(1, sizeof(struct security_obj_instance_ctx));
+        if (!security_data_0) {
+            fprintf(stderr, "Could not alloc memory for security object context[0]\n");
+            return -ENOMEM;
+        }
+
+        security_data_0->client = client;
+        security_data_0->server_uri = &server_addr_0;
+        security_data_0->is_bootstrap = false;
+        security_data_0->server_id = 101;
+
+        r = sol_lwm2m_client_add_object_instance(client, &security_object, security_data_0);
+        if (r < 0) {
+            fprintf(stderr, "Could not add a security object instance [0]\n");
+            goto exit_del;
+        }
+
+        //Security [1] = 102
+        security_data_1 = calloc(1, sizeof(struct security_obj_instance_ctx));
+        if (!security_data_1) {
+            fprintf(stderr, "Could not alloc memory for security object context[1]\n");
+            return -ENOMEM;
+        }
+
+        security_data_1->client = client;
+        security_data_1->server_uri = &server_addr_1;
+        security_data_1->is_bootstrap = false;
+        security_data_1->server_id = 102;
+
+        r = sol_lwm2m_client_add_object_instance(client, &security_object, security_data_1);
+        if (r < 0) {
+            fprintf(stderr, "Could not add a security object instance[1]\n");
+            goto exit_del;
+        }
+
     } else {
         r = sol_lwm2m_client_add_bootstrap_finish_monitor(client, bootstrap_cb,
             NULL);
-
         if (r < 0) {
             fprintf(stderr, "Could not add a bootstrap monitor\n");
             goto exit_del;
         }
 
-        security_data->server_uri = &bootstrap_server_addr;
-        security_data->is_bootstrap = true;
-        security_data->client_hold_off_time = 5;
-        security_data->bootstrap_server_account_timeout = 0;
-    }
+        //Security [0] = 0
+        security_data_0 = calloc(1, sizeof(struct security_obj_instance_ctx));
+        if (!security_data_0) {
+            fprintf(stderr, "Could not alloc memory for security object context[0]\n");
+            return -ENOMEM;
+        }
 
-    r = sol_lwm2m_client_add_object_instance(client, &security_object, security_data);
+        security_data_0->client = client;
+        security_data_0->server_uri = &bootstrap_server_addr;
+        security_data_0->is_bootstrap = true;
+        security_data_0->client_hold_off_time = 5;
+        security_data_0->bootstrap_server_account_timeout = 0;
 
-    if (r < 0) {
-        fprintf(stderr, "Could not add a security object instance\n");
-        goto exit_del;
+        r = sol_lwm2m_client_add_object_instance(client, &security_object, security_data_0);
+        if (r < 0) {
+            fprintf(stderr, "Could not add a security object instance[0]\n");
+            goto exit_del;
+        }
     }
 
     sol_lwm2m_client_start(client);

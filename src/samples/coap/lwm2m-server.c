@@ -284,7 +284,13 @@ main(int argc, char *argv[])
     uint16_t port = SOL_LWM2M_DEFAULT_SERVER_PORT;
     int r;
 
-    printf("Using the default LWM2M port (%" PRIu16 ")\n", port);
+    if (argc < 2) {
+        printf("Using the default LWM2M port (%" PRIu16 ")\n", port);
+    } else {
+        port = atoi(argv[1]);
+        printf("Using port %" PRIu16 "\n", port);
+    }
+
     sol_init();
 
     server = sol_lwm2m_server_new(port);
