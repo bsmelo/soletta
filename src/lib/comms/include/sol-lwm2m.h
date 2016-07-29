@@ -134,6 +134,35 @@ enum sol_lwm2m_binding_mode {
 };
 
 /**
+ * @brief Enum that represents the UDP Security Mode.
+ */
+enum sol_lwm2m_security_mode {
+    /**
+     * Pre-Shared Key security mode with Cipher Suite TLS_PSK_WITH_AES_128_CCM_8
+     * In this case, the following Resource IDs have to be filled as well:
+     * /3 "Public Key or Identity":    PSK Identity [16 bytes; UTF-8 String];
+     * /5 "Secret Key":                PSK [128-bit AES Key; 16 Opaque bytes];
+     */
+    SOL_LWM2M_SECURITY_MODE_PRE_SHARED_KEY = 0,
+    /**
+     * Raw Public Key security mode with Cipher Suite TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8
+     * In this case, the following Resource IDs have to be filled as well:
+     * /3 "Public Key or Identity":                    Client's Raw Public Key [256-bit ECC key; 32 Opaque bytes];
+     * /4 "Server Public Key or Identity Resource":    [Expected] Server's Raw Public Key [256-bit ECC key; 32 Opaque bytes];
+     * /5 "Secret Key":                                Client's Private Key [256-bit ECC key; 32 Opaque bytes];
+     */
+    SOL_LWM2M_SECURITY_MODE_RAW_PUBLIC_KEY = 1,
+    /**
+     * Certificate security mode is not supported yet.
+     */
+    SOL_LWM2M_SECURITY_MODE_CERTIFICATE = 2,
+    /**
+     * No security ("NoSec") mode (CoAP without DTLS)
+     */
+    SOL_LWM2M_SECURITY_MODE_NO_SEC = 3
+};
+
+/**
  * @brief Enum that represents a LWM2M response/request content type.
  */
 enum sol_lwm2m_content_type {
