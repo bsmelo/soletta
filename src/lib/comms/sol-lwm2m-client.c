@@ -1509,7 +1509,7 @@ err_exit:
 
 SOL_API struct sol_lwm2m_client *
 sol_lwm2m_client_new(const char *name, const char *path, const char *sms,
-    const struct sol_lwm2m_object **objects, const void *data)
+    const struct sol_lwm2m_object **objects, bool secure, const void *data)
 {
     struct sol_lwm2m_client *client;
     struct obj_ctx *obj_ctx;
@@ -1564,7 +1564,7 @@ sol_lwm2m_client_new(const char *name, const char *path, const char *sms,
         SOL_NULL_CHECK_GOTO(client->sms, err_sms);
     }
 
-    client->coap_server = sol_coap_server_new(&servaddr, false);
+    client->coap_server = sol_coap_server_new(&servaddr, secure);
     SOL_NULL_CHECK_GOTO(client->coap_server, err_coap);
 
     sol_monitors_init(&client->bootstrap, NULL);
@@ -1654,6 +1654,9 @@ sol_lwm2m_client_del(struct sol_lwm2m_client *client)
 
     sol_coap_server_unref(client->coap_server);
 
+    if (client->security)
+        sol_lwm2m_client_security_del(client->security);
+
     SOL_VECTOR_FOREACH_IDX (&client->objects, ctx, i)
         obj_ctx_clear(client, ctx);
 
@@ -1695,7 +1698,7 @@ sol_lwm2m_client_add_object_instance(struct sol_lwm2m_client *client,
     SOL_INT_CHECK_GOTO(r, < 0, err_exit);
 
     if (client->supports_access_control &&
-        ctx->obj->id != SECURITY_SERVER_OBJECT_ID &&
+        ctx->obj->id != SECURITY_OBJECT_ID &&
         ctx->obj->id != ACCESS_CONTROL_OBJECT_ID) {
         //Since this API is expected to be used only in Factory Bootstrap mode,
         // the owner of this Access Control Object Instance will be the
@@ -2135,7 +2138,7 @@ server_connection_ctx_new(struct sol_lwm2m_client *client,
         sizeof(struct sol_network_link_addr));
 
     if (!uri.port)
-        conn_ctx->port = SOL_LWM2M_DEFAULT_SERVER_PORT;
+        conn_ctx->port = SOL_LWM2M_DEFAULT_SERVER_PORT_COAP;
     else
         conn_ctx->port = uri.port;
 
@@ -2294,7 +2297,7 @@ setup_access_control_object_instance_for_instance(
     // Access Control Object Instances, and Security Object Instances
     // can only be managed by Bootstrap Servers, so there's no sense in
     // creating Access Control Object Instances or ACLs for them
-    if (target_object_id == SECURITY_SERVER_OBJECT_ID ||
+    if (target_object_id == SECURITY_OBJECT_ID ||
         target_object_id == ACCESS_CONTROL_OBJECT_ID) {
         return 0;
     }
@@ -2410,7 +2413,7 @@ setup_access_control_object_instances(struct sol_lwm2m_client *client)
     SOL_VECTOR_FOREACH_IDX (&client->objects, obj_ctx, i) {
         //No one is allowed to 'C'reate Security Objects, Server Objects,
         // and Access Control Objects
-        if (obj_ctx->obj->id != SECURITY_SERVER_OBJECT_ID &&
+        if (obj_ctx->obj->id != SECURITY_OBJECT_ID &&
             obj_ctx->obj->id != SERVER_OBJECT_ID &&
             obj_ctx->obj->id != ACCESS_CONTROL_OBJECT_ID) {
             SOL_SET_API_VERSION(res.api_version = SOL_LWM2M_RESOURCE_API_VERSION; )
@@ -2474,7 +2477,7 @@ sol_lwm2m_client_start(struct sol_lwm2m_client *client)
         client->need_to_setup_access_control = false;
     }
 
-    ctx = find_object_ctx_by_id(client, SECURITY_SERVER_OBJECT_ID);
+    ctx = find_object_ctx_by_id(client, SECURITY_OBJECT_ID);
     if (!ctx) {
         SOL_WRN("LWM2M Security object not provided!");
         return -ENOENT;
@@ -2487,10 +2490,46 @@ sol_lwm2m_client_start(struct sol_lwm2m_client *client)
 
     //Try to register with all available [non-bootstrap] servers
     SOL_VECTOR_FOREACH_IDX (&ctx->instances, instance, i) {
+        //Setup DTLS parameters
         r = read_resources(client, ctx, instance, res, 1,
-            SECURITY_SERVER_IS_BOOTSTRAP);
+            SECURITY_SECURITY_MODE);
         SOL_INT_CHECK_GOTO(r, < 0, err_exit);
 
+        switch (res[0].data[0].content.integer) {
+        case SOL_LWM2M_SECURITY_MODE_PRE_SHARED_KEY:
+            client->security = sol_lwm2m_client_security_add(client,
+                SOL_LWM2M_SECURITY_MODE_PRE_SHARED_KEY);
+            if (!client->security) {
+                r = -errno;
+                SOL_ERR("Could not enable Pre-Shared Key security mode for LWM2M client");
+                goto err_clear_1;
+            } else {
+                SOL_DBG("Using Pre-Shared Key security mode");
+            }
+            break;
+        case SOL_LWM2M_SECURITY_MODE_RAW_PUBLIC_KEY:
+            SOL_WRN("Raw Public Key security mode is not supported yet.");
+            r = -ENOTSUP;
+            goto err_clear_1;
+        case SOL_LWM2M_SECURITY_MODE_CERTIFICATE:
+            SOL_WRN("Certificate security mode is not supported yet.");
+            r = -ENOTSUP;
+            goto err_clear_1;
+        case SOL_LWM2M_SECURITY_MODE_NO_SEC:
+            SOL_DBG("Using NoSec Security Mode (No DTLS).");
+            break;
+        default:
+            SOL_WRN("Unknown DTLS [Security Mode] Resource from Security Object: %"
+                PRId64, res[0].data[0].content.integer);
+            r = -EINVAL;
+            goto err_clear_1;
+        }
+
+        sol_lwm2m_resource_clear(&res[0]);
+
+        r = read_resources(client, ctx, instance, res, 1,
+            SECURITY_IS_BOOTSTRAP);
+        SOL_INT_CHECK_GOTO(r, < 0, err_exit);
         //Is it a bootstap?
         if (!res[0].data[0].content.b) {
             sol_lwm2m_resource_clear(&res[0]);
@@ -2520,8 +2559,8 @@ sol_lwm2m_client_start(struct sol_lwm2m_client *client)
 
         r = read_resources(client, ctx,
             sol_vector_get_no_check(&ctx->instances, bootstrap_account_idx), res, 3,
-            SECURITY_SERVER_URI, SECURITY_SERVER_CLIENT_HOLD_OFF_TIME,
-            SECURITY_SERVER_BOOTSTRAP_SERVER_ACCOUNT_TIMEOUT);
+            SECURITY_SERVER_URI, SECURITY_CLIENT_HOLD_OFF_TIME,
+            SECURITY_BOOTSTRAP_SERVER_ACCOUNT_TIMEOUT);
 
         //Create '/bs' CoAP resource to receive Bootstrap Finish notification
         r = sol_coap_server_register_resource(client->coap_server,
@@ -2589,6 +2628,7 @@ err_clear_3:
     sol_lwm2m_resource_clear(&res[2]);
 err_clear_2:
     sol_lwm2m_resource_clear(&res[1]);
+err_clear_1:
     sol_lwm2m_resource_clear(&res[0]);
 err_exit:
     return r;

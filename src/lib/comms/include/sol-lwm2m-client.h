@@ -222,6 +222,7 @@ typedef struct sol_lwm2m_object {
  * @param path The Objects path, may be @c NULL.
  * @param sms The SMS number, may be @c NULL.
  * @param objects The implemented objects, must not be @c NULL and must be @c NULL terminated.
+ * @param secure Indicates if this LWM2M Client should use DTLS.
  * @param data The user's data that will be passed to the object callbacks. (create, execute, read, write and del).
  * @return A LWM2M client handle or @c NULL on error
  * @see sol_lwm2m_client_del()
@@ -230,7 +231,7 @@ typedef struct sol_lwm2m_object {
  */
 struct sol_lwm2m_client *sol_lwm2m_client_new(const char *name,
     const char *path, const char *sms, const struct sol_lwm2m_object **objects,
-    const void *data);
+    bool secure, const void *data);
 
 /**
  * @brief Deletes a LWM2M client.

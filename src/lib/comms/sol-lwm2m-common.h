@@ -44,12 +44,16 @@
 #define UINT24_MAX (16777215)
 #define ONE_SECOND (1000)
 
-#define SECURITY_SERVER_OBJECT_ID (0)
+#define SECURITY_OBJECT_ID (0)
 #define SECURITY_SERVER_URI (0)
-#define SECURITY_SERVER_IS_BOOTSTRAP (1)
+#define SECURITY_IS_BOOTSTRAP (1)
+#define SECURITY_SECURITY_MODE (2)
+#define SECURITY_PUBLIC_KEY_OR_IDENTITY (3)
+#define SECURITY_SERVER_PUBLIC_KEY (4)
+#define SECURITY_SECRET_KEY (5)
 #define SECURITY_SERVER_ID (10)
-#define SECURITY_SERVER_CLIENT_HOLD_OFF_TIME (11)
-#define SECURITY_SERVER_BOOTSTRAP_SERVER_ACCOUNT_TIMEOUT (12)
+#define SECURITY_CLIENT_HOLD_OFF_TIME (11)
+#define SECURITY_BOOTSTRAP_SERVER_ACCOUNT_TIMEOUT (12)
 
 #define SERVER_OBJECT_ID (1)
 #define SERVER_OBJECT_SERVER_ID (0)
@@ -185,6 +189,8 @@ struct sol_lwm2m_client {
         struct sol_timeout *timeout;
         struct sol_blob *server_uri;
     } bootstrap_ctx;
+    struct sol_coap_server *dtls_server;
+    struct sol_lwm2m_security *security;
     const void *user_data;
     uint16_t splitted_path_len;
     char *name;
