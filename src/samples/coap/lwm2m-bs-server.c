@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <unistd.h>
 
 #define LIFETIME (60)
 
@@ -308,17 +309,74 @@ bootstrap_cb(void *data,
     }
 }
 
+//FIXME: UNSEC: Hardcoded Crypto Keys
+static struct sol_blob psk_id_0 = {
+    .type = &SOL_BLOB_TYPE_NO_FREE,
+    .parent = NULL,
+    .mem = (void *)"Client Key ID",
+    .size = sizeof("Client Key ID") - 1,
+    .refcnt = 1
+};
+
+static struct sol_blob psk_key_0 = {
+    .type = &SOL_BLOB_TYPE_NO_FREE,
+    .parent = NULL,
+    .mem = (void *)"0123456789ABCDEF",
+    .size = sizeof("0123456789ABCDEF") - 1,
+    .refcnt = 1
+};
+
 int
 main(int argc, char *argv[])
 {
     struct sol_lwm2m_bootstrap_server *server;
     uint16_t port = 5783;
     int r;
+    enum sol_lwm2m_security_mode sec_mode = SOL_LWM2M_SECURITY_MODE_PRE_SHARED_KEY;
+    char usage[256];
+    struct sol_lwm2m_key_pair *key_pair;
+    struct sol_vector known_keys = { };
 
-    printf("Using port %" PRIu16 "\n", port);
+    snprintf(usage, sizeof(usage), "Usage: ./lwm2m-sample-bs-server [-p PORT] [-s SEC_MODE]\n"
+        "Where default PORT=%" PRIu16 " and SEC_MODE is an integer as per:\n"
+        "\tPRE_SHARED_KEY=%d (default)\n"
+        "\tRAW_PUBLIC_KEY=%d\n"
+        "\tCERTIFICATE=%d\n",
+        port,
+        SOL_LWM2M_SECURITY_MODE_PRE_SHARED_KEY,
+        SOL_LWM2M_SECURITY_MODE_RAW_PUBLIC_KEY,
+        SOL_LWM2M_SECURITY_MODE_CERTIFICATE);
+
+    while ((r = getopt(argc, argv, "ps:")) != -1) {
+        switch (r) {
+        case 'p':
+            port = atoi(optarg);
+            break;
+        case 's':
+            sec_mode = atoi(optarg);
+            if (sec_mode < 0 || sec_mode > 2) {
+                fprintf(stderr, "%s", usage);
+                return -1;
+            }
+            break;
+        default:
+            fprintf(stderr, "%s", usage);
+            return -1;
+        }
+    }
+
+    printf("Using port %" PRIu16 " for DTLS\n", port);
     sol_init();
 
-    server = sol_lwm2m_bootstrap_server_new(port, known_clients);
+    if (sec_mode == SOL_LWM2M_SECURITY_MODE_PRE_SHARED_KEY) {
+        sol_vector_init(&known_keys, sizeof(struct sol_lwm2m_key_pair));
+        key_pair = sol_vector_append(&known_keys);
+        key_pair->sec_mode = sec_mode;
+        key_pair->public_key_or_id = &psk_id_0;
+        key_pair->secret_key = &psk_key_0;
+    }
+
+    server = sol_lwm2m_bootstrap_server_new(port, known_clients, sec_mode, &known_keys);
     if (!server) {
         r = -1;
         fprintf(stderr, "Could not create the LWM2M bootstrap server\n");
@@ -338,6 +396,7 @@ main(int argc, char *argv[])
 exit_del:
     sol_lwm2m_bootstrap_server_del(server);
 exit:
+    sol_vector_clear(&known_keys);
     sol_shutdown();
     return r;
 }
