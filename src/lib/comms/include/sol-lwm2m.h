@@ -62,9 +62,14 @@ extern "C" {
  */
 
 /**
- * @brief Macro that defines the default port for a LWM2M server.
+ * @brief Macro that defines the default port for a NoSec LWM2M server.
  */
-#define SOL_LWM2M_DEFAULT_SERVER_PORT (5683)
+#define SOL_LWM2M_DEFAULT_SERVER_PORT_COAP (5683)
+
+/**
+ * @brief Macro that defines the default port for a DTLS-secured LWM2M server.
+ */
+#define SOL_LWM2M_DEFAULT_SERVER_PORT_DTLS (5684)
 
 /**
  * @typedef sol_lwm2m_client_object
@@ -265,6 +270,39 @@ enum sol_lwm2m_resource_type {
      */
     SOL_LWM2M_RESOURCE_TYPE_UNKNOWN = -1
 };
+
+/**
+ * @brief Struct that represents a Key Pair.
+ *
+ * A sol_vector holding elements of this type is used by the LWM2M Server
+ * and LWM2M Bootstrap Server to keep a list of known Clients' Pre-Shared Keys
+ * (for #SOL_LWM2M_SECURITY_MODE_PRE_SHARED_KEY Security Mode) and another one
+ * to keep the Server's Public and Private Keys
+ * (for #SOL_LWM2M_SECURITY_MODE_RAW_PUBLIC_KEY Security Mode).
+ *
+ * @see sol_lwm2m_server_new()
+ * @see sol_lwm2m_bootstrap_server_new()
+ */
+typedef struct sol_lwm2m_key_pair {
+    /** @brief The Security Mode defining the Key Pair's type */
+    enum sol_lwm2m_security_mode sec_mode;
+    /** @brief The Public Key or Identity, conforming to the Security Mode, as per table below:
+     *
+     * @c sec_mode Value | @c public_key_or_id Value | @c public_key_or_id Format
+     * ----------------- | ------------------------- | --------------------------
+     * #SOL_LWM2M_SECURITY_MODE_PRE_SHARED_KEY | PSK Identity | 16 bytes; UTF-8 String;
+     * #SOL_LWM2M_SECURITY_MODE_RAW_PUBLIC_KEY | Raw Public Key | 32 bytes; Opaque;
+    */
+    struct sol_blob *public_key_or_id;
+    /** @brief The Secret Key, conforming to the Security Mode, as per table below:
+     *
+     * @c sec_mode Value | @c secret_key Value | @c secret_key Format
+     * ----------------- | ------------------- | --------------------
+     * #SOL_LWM2M_SECURITY_MODE_PRE_SHARED_KEY | PSK Key | 16 bytes; Opaque; [128-bit AES Key]
+     * #SOL_LWM2M_SECURITY_MODE_RAW_PUBLIC_KEY | Raw Private Key | 32 bytes; Opaque; [256-bit AES Key]
+     */
+    struct sol_blob *secret_key;
+} sol_lwm2m_key_pair;
 
 /**
  * @brief Struct that represents TLV data.
