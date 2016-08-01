@@ -735,7 +735,7 @@ sol_socket_dtls_set_handshake_cipher(struct sol_socket *s,
     enum sol_socket_dtls_cipher cipher)
 {
     static const dtls_cipher_t conv_tbl[] = {
-        [SOL_SOCKET_DTLS_CIPHER_ECDH_ANON_AES128_CBC_SHA256] = TLS_ECDH_anon_WITH_AES_128_CBC_SHA_256,
+//        [SOL_SOCKET_DTLS_CIPHER_ECDH_ANON_AES128_CBC_SHA256] = TLS_ECDH_anon_WITH_AES_128_CBC_SHA_256,
         [SOL_SOCKET_DTLS_CIPHER_PSK_AES128_CCM8] = TLS_PSK_WITH_AES_128_CCM_8,
         [SOL_SOCKET_DTLS_CIPHER_ECDHE_ECDSA_AES128_CCM8] = TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8
     };
@@ -750,7 +750,7 @@ sol_socket_dtls_set_handshake_cipher(struct sol_socket *s,
 
     return 0;
 }
-
+/*
 int
 sol_socket_dtls_set_anon_ecdh_enabled(struct sol_socket *s, bool setting)
 {
@@ -763,7 +763,7 @@ sol_socket_dtls_set_anon_ecdh_enabled(struct sol_socket *s, bool setting)
 
     return 0;
 }
-
+ */
 int
 sol_socket_dtls_prf_keyblock(struct sol_socket *s,
     const struct sol_network_link_addr *addr, struct sol_str_slice label,
